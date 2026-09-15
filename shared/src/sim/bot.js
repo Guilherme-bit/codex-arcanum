@@ -1,7 +1,6 @@
 // IA do bot de treino do Polígono: aproxima-se, dispara, esquiva, desvia de
-// obstáculos e faz dash quando fica preso. Corre localmente no cliente.
+// obstáculos, procura orbes de mana e faz dash quando fica preso. Só cliente.
 import { inputVazio } from './simulacao.js';
-import { colideObstaculo } from './simulacao.js';
 import { JOGADOR } from '../constantes.js';
 
 export function inputDoBot(partida, idBot, memoria = {}) {
@@ -20,7 +19,7 @@ export function inputDoBot(partida, idBot, memoria = {}) {
   const ux0 = dx / dist, uy0 = dy / dist;
   let visivel = true;
   for (let i = 1; i <= 6; i++) {
-    if (colideObstaculo(c.x + (ux0 * dist * i) / 6, c.y + (uy0 * dist * i) / 6, 3)) { visivel = false; break; }
+    if (partida.colide(c.x + (ux0 * dist * i) / 6, c.y + (uy0 * dist * i) / 6, 3)) { visivel = false; break; }
   }
 
   // Esquiva: projétil inimigo a caminho → fugir perpendicular
@@ -33,7 +32,7 @@ export function inputDoBot(partida, idBot, memoria = {}) {
     }
   }
 
-  // Direção desejada: aproximar/afastar da distância ideal + strafe
+  // Direção desejada: aproximar/afastar da distância ideal + strafe + orbes
   if (memoria.strafeT === undefined || memoria.strafeT <= 0) {
     memoria.strafeT = 0.7 + rng() * 1.2;
     memoria.strafeDir = rng() < 0.5 ? -1 : 1;
@@ -45,15 +44,30 @@ export function inputDoBot(partida, idBot, memoria = {}) {
   let mx = ux * fator + -uy * memoria.strafeDir * pesoStrafe;
   let my = uy * fator + ux * memoria.strafeDir * pesoStrafe;
 
+  //Mana baixa? corre para o orbe de mana mais próximo
+  if (c.mana < 30) {
+    let melhor = null, melhorD = 280;
+    for (const o of c.orbes) {
+      if (o.tipo !== 'mana') continue;
+      const d = Math.hypot(o.x - c.x, o.y - c.y);
+      if (d < melhorD) { melhorD = d; melhor = o; }
+    }
+    if (melhor) {
+      const od = melhorD || 1;
+      mx = (melhor.x - c.x) / od * 1.4 + -uy * 0.3;
+      my = (melhor.y - c.y) / od * 1.4 + ux * 0.3;
+    }
+  }
+
   if (ex || ey) { mx = ex; my = ey; }
 
   // Desvio de obstáculos: se a frente estiver bloqueada, roda até encontrar espaço
   let ang = Math.atan2(my, mx);
-  if (colideObstaculo(c.x + Math.cos(ang) * 38, c.y + Math.sin(ang) * 38, JOGADOR.raio)) {
+  if (partida.colide(c.x + Math.cos(ang) * 38, c.y + Math.sin(ang) * 38, JOGADOR.raio)) {
     let escapou = false;
     for (const desvio of [0.65, -0.65, 1.3, -1.3, 2.1, -2.1, Math.PI]) {
       const a2 = ang + desvio;
-      if (!colideObstaculo(c.x + Math.cos(a2) * 38, c.y + Math.sin(a2) * 38, JOGADOR.raio)) { ang = a2; escapou = true; break; }
+      if (!partida.colide(c.x + Math.cos(a2) * 38, c.y + Math.sin(a2) * 38, JOGADOR.raio)) { ang = a2; escapou = true; break; }
     }
     if (!escapou) ang = Math.atan2(300 - c.y, 480 - c.x); // canto: foge para o centro da arena
     mx = Math.cos(ang); my = Math.sin(ang);

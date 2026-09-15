@@ -12,3 +12,5 @@ export { CODIGO_CLASSICOS, obterClassicos } from './feiticos/classicos.js';
 export { LICOES } from './academia/licoes.js';
 export { verificarLicao } from './academia/verificar.js';
 export * from './progresso.js';
+export { SKINS, skinPorId, skinsDesbloqueadas } from './skins.js';
+export { BIBLIOTECA, TIERS } from './feiticos/biblioteca.js';

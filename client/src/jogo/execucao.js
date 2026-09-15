@@ -10,7 +10,7 @@ import { som } from '../audio.js';
 const SOM_EVENTO = {
   lancou: 'lancar', impacto: 'impacto', dano: 'dano', parry: 'parry', morte: 'morte',
   sinergia: 'sinergia', erro: 'erro', dash: 'dash', teleporte: 'dash', escudo: 'escudo',
-  quebra: 'quebra', round: 'round', sobremorte: 'round',
+  quebra: 'quebra', round: 'round', sobremorte: 'round', portal: 'parry', orbe: 'ui',
 };
 
 function criarPalco() {
@@ -44,13 +44,14 @@ function sobreposicaoFim(palco, { venceu, titulo, sub, onRepetir, onSair, comRep
 const SONS_FIM = { vitoria: 'vitoria', derrota: 'derrota' };
 
 // ── Partida local (Polígono de Treino / Academia) ───────────────────────────
-export function iniciarJogoLocal({ loadout, aoSair, aoDano, nomeAdversario = 'Bot de Treino' }) {
+export function iniciarJogoLocal({ loadout, aoSair, aoDano, nomeAdversario = 'Bot de Treino', skin = 'aprendiz', skinBot = 'observador' }) {
   const { palco, canvas } = criarPalco();
   const partida = new Partida({
     semente: (Math.random() * 1e9) | 0,
+    mapaId: Math.random() < 0.5 ? 'academia' : 'santuario',
     jogadores: [
-      { id: 'eu', nome: 'Tu', loadout },
-      { id: 'bot', nome: nomeAdversario, loadout: obterClassicos() },
+      { id: 'eu', nome: 'Tu', skin, loadout },
+      { id: 'bot', nome: nomeAdversario, skin: skinBot, loadout: obterClassicos() },
     ],
   });
   const rend = new Renderizador(canvas);
@@ -78,7 +79,7 @@ export function iniciarJogoLocal({ loadout, aoSair, aoDano, nomeAdversario = 'Bo
     for (const ev of snap.eventos) if (SOM_EVENTO[ev.tipo]) som(SOM_EVENTO[ev.tipo]);
     rend.atualizar(dt);
     rend.desenhar(snap, 'eu');
-    hud.atualizar(snap);
+    hud.atualizar(snap, controlos.slotSelecionado);
 
     // XP de treino: dano causado ao bot
     if (snap.round !== rondaAtual) { rondaAtual = snap.round; danoBase = 100; }
@@ -185,7 +186,7 @@ export function iniciarJogoOnline({ socket, infoDuelo, loadout, aoSair }) {
     if (snap) {
       rend.atualizar(dt);
       rend.desenhar(snap, infoDuelo.meuId);
-      hud.atualizar(buffer[buffer.length - 1]?.snap ?? snap);
+      hud.atualizar(buffer[buffer.length - 1]?.snap ?? snap, controlos.slotSelecionado);
     }
   };
   raf = requestAnimationFrame(loop);

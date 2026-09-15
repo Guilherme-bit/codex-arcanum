@@ -72,11 +72,15 @@ export async function ecraEditor(raiz, id, params) {
     <div class="caixa-editor" data-editor style="height: calc(100vh - 130px); margin-top: 12px;"></div>`;
   raiz.appendChild(ecra);
 
-  // valor inicial: existente, cópia de outro, ou modelo novo
+  // valor inicial: existente, cópia de outro, estudo do Tomo, ou modelo novo
   let valor = MODELO_NOVO;
+  const codigoEstudo = sessionStorage.getItem('codex-estudar-codigo');
   if (id !== 'novo') {
     const f = perfil.feiticoPorId(id);
     if (f) valor = f.codigo;
+  } else if (codigoEstudo) {
+    valor = codigoEstudo;
+    sessionStorage.removeItem('codex-estudar-codigo');
   } else if (params.get('de')) {
     const origem = perfil.feiticoPorId(params.get('de'));
     if (origem) valor = origem.codigo.replace(/nome:\s*"[^"]*"/, 'nome: "Cópia de ' + origem.nome.replace(/"/g, '') + '"');

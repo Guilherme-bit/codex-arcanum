@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import {
   Partida, inputVazio, compilarFeitico, obterClassicos,
-  FOTO_TICKS, ENERGIA_ARCANA_MAX, ligaDe,
+  FOTO_TICKS, ENERGIA_ARCANA_MAX, ligaDe, MAPAS, SKINS,
 } from '@codex/shared';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -68,13 +68,19 @@ let proximaPartida = 1;
 const classicos = obterClassicos();
 
 // Valida o loadout enviado pelo cliente; devolve { ok, loadoutCompilado, erro }.
+// Cada slot pode ser uma string de código ou { codigo, potencia } (Tinta de Treino).
 function validarLoadout(codigos) {
   const compilados = [];
   for (let i = 0; i < 6; i++) {
-    const codigo = codigos?.[i];
+    const item = codigos?.[i];
+    const codigo = typeof item === 'string' ? item : item?.codigo;
+    const potencia = (typeof item === 'object' && item && Number.isFinite(Number(item.potencia)))
+      ? Math.min(1, Math.max(0.5, Number(item.potencia)))
+      : 1;
     if (!codigo || typeof codigo !== 'string') { compilados.push(null); continue; }
     const r = compilarFeitico(codigo);
     if (!r.ok) return { ok: false, erro: `Feitiço no slot ${i + 1} inválido: ${r.erros[0]}` };
+    r.feitico.potencia = potencia;
     compilados.push(r.feitico);
   }
   if (!compilados.some(Boolean)) compilados.forEach((_, i) => { compilados[i] = classicos[i]; });
@@ -94,9 +100,10 @@ function criarPartida(sockA, sockB, modo) {
   const loadB = sessoes.get(sockB.id).loadout;
   const partida = new Partida({
     semente: (Date.now() ^ (proximaPartida * 7919)) >>> 0,
+    mapaId: MAPAS[Math.floor(partidaAleatoria() * MAPAS.length)].id,
     jogadores: [
-      { id: sockA.id, nome: sessoes.get(sockA.id).nome, loadout: loadA },
-      { id: sockB.id, nome: sessoes.get(sockB.id).nome, loadout: loadB },
+      { id: sockA.id, nome: sessoes.get(sockA.id).nome, skin: sessoes.get(sockA.id).skin, loadout: loadA },
+      { id: sockB.id, nome: sessoes.get(sockB.id).nome, skin: sessoes.get(sockB.id).skin, loadout: loadB },
     ],
   });
   const p = { id, modo, partida, sockets: [sockA, sockB], ticksFoto: 0, terminada: false };
@@ -190,9 +197,12 @@ setInterval(() => {
 
 // ── Ligação de clientes ──────────────────────────────────────────────────────
 io.on('connection', (sock) => {
-  sock.on('entrar', ({ nome } = {}) => {
+  sock.on('entrar', ({ nome, skin } = {}) => {
     const limpo = String(nome ?? '').trim().slice(0, 18) || 'Mago Anónimo';
-    sessoes.set(sock.id, { nome: limpo, loadout: null });
+    sessoes.set(sock.id, {
+      nome: limpo, loadout: null,
+      skin: SKINS.some((s) => s.id === skin) ? skin : 'aprendiz',
+    });
     const e = eloDe(limpo);
     sock.emit('entrado', { nome: limpo, rating: e.rating, liga: ligaDe(e.rating), online: io.engine.clientsCount });
   });
@@ -261,3 +271,8 @@ io.on('connection', (sock) => {
 servidorHttp.listen(PORTA, () => {
   console.log(`⚔ Codex Arcanum — servidor a ouvir na porta ${PORTA}`);
 });
+
+// pequena utilidade local (Math.random é seguro aqui: não é lógica de simulação)
+function partidaAleatoria() {
+  return Math.random();
+}

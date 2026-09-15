@@ -3,6 +3,7 @@ import './estilo.css';
 import { ecraInicio, ecraPoligono, ecraDuelo, ecraPerfil } from './ui/menus.js';
 import { ecraAcademia, ecraLicao } from './ui/academia.js';
 import { ecraGrimorio, ecraEditor } from './ui/grimorio.js';
+import { ecraTomo } from './ui/tomo.js';
 import { som } from './audio.js';
 
 const app = document.getElementById('app');
@@ -36,6 +37,9 @@ async function render() {
       break;
     case 'grimorio':
       ecra = ecraGrimorio(app);
+      break;
+    case 'tomo':
+      ecra = ecraTomo(app);
       break;
     case 'editor':
       ecra = await ecraEditor(app, partes[1] ?? 'novo', params);

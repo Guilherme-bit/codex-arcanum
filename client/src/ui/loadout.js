@@ -1,6 +1,6 @@
 // Seletor de loadout: 6 slots + lista de feitiços + orçamento de energia arcana.
 // Partilhado pelo Polígono e pelo lobby de Duelo.
-import { ELEMENTOS, ENERGIA_ARCANA_MAX, compilarFeitico, obterClassicos } from '@codex/shared';
+import { ELEMENTOS, ENERGIA_ARCANA_MAX, compilarFeitico, obterClassicos, TECLAS_SLOTS } from '@codex/shared';
 import { perfil } from '../perfil.js';
 import { som } from '../audio.js';
 
@@ -30,10 +30,11 @@ export function criarSeletorLoadout(container) {
     slots.innerHTML = perfil.dados.loadout
       .map((id, i) => {
         const f = compilado[i];
+        const comTinta = !!f?.potencia && f.potencia < 1;
         return `
           <div class="slot ${f ? 'cheio' : ''} ${i === slotSelecionado ? 'selecionado' : ''}" data-slot="${i}">
-            <span class="tecla">${i + 1}</span>
-            ${f ? `<span class="nome">${f.nome}</span><span class="elem" style="color:${corEtiqueta(f.elemento)}">● ${f.elemento}</span>` : '<span class="elem">vazio</span>'}
+            <span class="tecla">${TECLAS_SLOTS[i]}</span>
+            ${f ? `<span class="nome">${comTinta ? '🖋 ' : ''}${f.nome}</span><span class="elem" style="color:${corEtiqueta(f.elemento)}">● ${f.elemento}${comTinta ? ' · tinta' : ''}</span>` : '<span class="elem">vazio</span>'}
           </div>`;
       })
       .join('');
@@ -43,12 +44,17 @@ export function criarSeletorLoadout(container) {
       .map((f) => {
         let elem = 'arcano';
         let complexidade = '?';
+        let tinta = false;
         const compil = f.hooks ? f : compilarFeitico(f.codigo);
         if (compil && compil.ok !== false && (compil.hooks || compil.ok)) {
           const info = compil.ok ? compil.feitico : compil;
           elem = info.elemento ?? elem;
           complexidade = info.complexidade ?? complexidade;
         }
+        tinta = !!f.tinta; // feitiços pessoais guardados com Tinta de Treino
+        const etiquetaTinta = tinta
+          ? `<span class="badge-tinta" title="Tinta de Treino: −25% de dano até 2 vitórias com ele equipado. Vitórias: ${f.tinta?.vitorias ?? 0}/2">🖋 Tinta de Treino (${f.tinta?.vitorias ?? 0}/2 vitórias)</span>`
+          : '';
         return `
           <div class="feitico-cartao" data-id="${f.id}">
             <h3>${f.nome}</h3>
@@ -57,8 +63,9 @@ export function criarSeletorLoadout(container) {
               <span>complexidade ${complexidade}</span>
               ${f.pessoal ? '<span>✦ teu</span>' : '<span>clássico</span>'}
             </div>
+            ${etiquetaTinta}
             <div class="acoes">
-              <button class="mini primario" data-equipar="${f.id}">Equipar no slot ${slotSelecionado + 1}</button>
+              <button class="mini primario" data-equipar="${f.id}">Equipar na tecla ${TECLAS_SLOTS[slotSelecionado]}</button>
               ${f.pessoal ? `<button class="mini" data-editar="${f.id}">Editar</button>
               <button class="mini perigo" data-apagar="${f.id}">Apagar</button>` : `<button class="mini" data-duplicar="${f.id}">Duplicar</button>`}
             </div>

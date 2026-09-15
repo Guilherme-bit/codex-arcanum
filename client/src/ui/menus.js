@@ -1,5 +1,5 @@
 // Ecrãs de menu: Início, Polígono, Duelo online e Perfil.
-import { LICOES, componentesDesbloqueados, proximosDesbloqueios, RECOMPENSAS_XP, ligaDe } from '@codex/shared';
+import { LICOES, componentesDesbloqueados, proximosDesbloqueios, RECOMPENSAS_XP, ligaDe, skinsDesbloqueadas, SKINS, TECLAS_SLOTS } from '@codex/shared';
 import { perfil } from '../perfil.js';
 import { criarBarraTopo, navegar } from './comum.js';
 import { criarSeletorLoadout } from './loadout.js';
@@ -24,7 +24,11 @@ export function ecraInicio(raiz) {
     <div class="cartoes-menu">
       <div class="cartao-menu" data-ir="#/academia">
         <div class="emblema">📜</div><h3>Academia</h3>
-        <p>Oito capítulos que te levam do primeiro projétil à mira preditiva. ${perfil.dados.licoes.length}/${LICOES.length} concluídos.</p>
+        <p>Oito capítulos, um passo de cada vez: muda uma linha, verifica, aprende. ${perfil.dados.licoes.length}/${LICOES.length} concluídos.</p>
+      </div>
+      <div class="cartao-menu" data-ir="#/tomo">
+        <div class="emblema">📚</div><h3>O Tomo</h3>
+        <p>Biblioteca do Mestre: ${24} feitiços por dificuldade de código. Copia-os… com Tinta de Treino.</p>
       </div>
       <div class="cartao-menu" data-ir="#/grimorio">
         <div class="emblema">📖</div><h3>Grimório</h3>
@@ -37,6 +41,10 @@ export function ecraInicio(raiz) {
       <div class="cartao-menu" data-ir="#/duelo">
         <div class="emblema">⚔</div><h3>Duelo Online</h3>
         <p>1v1 autoritativo com matchmaking. Casual ou ranqueado com Elo.</p>
+      </div>
+      <div class="cartao-menu" data-ir="#/perfil">
+        <div class="emblema">🎭</div><h3>Perfil &amp; Skins</h3>
+        <p>Escolhe a forma do teu mago e vê o teu progresso. Subes de nível para desbloquear skins.</p>
       </div>
     </div>
     <p style="margin-top:26px; color:var(--texto-2); font-size:13px;">
@@ -80,6 +88,7 @@ export function ecraPoligono(raiz) {
     let sessao;
     sessao = iniciarJogoLocal({
       loadout,
+      skin: perfil.skin,
       aoDano: null,
       aoSair: (dano) => {
         sessao?.destruir();
@@ -169,6 +178,8 @@ export function ecraDuelo(raiz) {
     sessao?.destruir(); sessao = null;
     ecra.style.display = '';
     perfil.registarDuelo(res.venci, res.rating);
+    // Tinta de Treino: a vitória desbota a tinta dos feitiços equipados
+    const purificados = res.venci ? perfil.purificarTintas(perfil.idsLoadoutPessoais()) : [];
     const xp = res.venci ? RECOMPENSAS_XP.vitoria : RECOMPENSAS_XP.derrota;
     const novoNivel = perfil.adicionarXP(xp);
     som(res.venci ? 'vitoria' : 'derrota');
@@ -180,11 +191,12 @@ export function ecraDuelo(raiz) {
         <h2 class="${res.venci ? 'vitoria' : 'derrota'}">${res.venci ? 'VITÓRIA ARCANA!' : 'DERROTA…'}</h2>
         <p>Placar: ${res.placar.join(' — ')}${res.desistencia ? ' (por desistência)' : ''} · modo ${res.modo}</p>
         ${res.modo === 'ranqueado' ? `<div class="resultado-elo">${res.deltaElo >= 0 ? '+' : ''}${res.deltaElo} Elo → ★ ${res.rating ?? perfil.dados.rating} (${res.liga ?? ligaDe(perfil.dados.rating)})</div>` : ''}
+        ${purificados.length ? `<p class="tinta-purificada">✒ A tinta de treino desbotou: <strong>${purificados.join(', ')}</strong> ${purificados.length > 1 ? 'estão purificados' : 'está purificado'} — poder pleno!</p>` : res.venci ? '<p class="tinta-nota">🖋 As runas de treino dos teus feitiços com tinta desbotaram um pouco.</p>' : ''}
         <p>+${xp} XP${novoNivel ? ` · NÍVEL ${novoNivel}!` : ''}</p>
         <button class="primario" data-ok>Voltar ao lobby</button>
       </div>`;
     raiz.appendChild(caixa);
-    caixa.querySelector('[data-ok]').onclick = () => { caixa.remove(); navegar('#/duelo'); };
+    caixa.querySelector('[data-ok]').onclick = () => { caixa.remove(); navegar('#/duelo'); seletor.redesenhar(); };
   };
 
   socket.on('entrado', aoEntrado);
@@ -192,8 +204,8 @@ export function ecraDuelo(raiz) {
   socket.on('dueloEncontrado', aoEncontrado);
   socket.on('fimDuelo', aoFimDuelo);
   socket.on('erroLoadout', aoErroLoadout);
-  socket.on('connect', () => { socket.emit('entrar', { nome: perfil.dados.nome || 'Mago Anónimo' }); });
-  if (socket.connected) socket.emit('entrar', { nome: perfil.dados.nome || 'Mago Anónimo' });
+  socket.on('connect', () => { socket.emit('entrar', { nome: perfil.dados.nome || 'Mago Anónimo', skin: perfil.skin }); });
+  if (socket.connected) socket.emit('entrar', { nome: perfil.dados.nome || 'Mago Anónimo', skin: perfil.skin });
 
   botoes.forEach((b) => {
     b.onclick = () => {
@@ -235,6 +247,7 @@ export function ecraPerfil(raiz) {
   const nivel = perfil.nivel;
   const desbloqueados = componentesDesbloqueados(nivel);
   const proximos = proximosDesbloqueios(nivel);
+  const minhasSkins = skinsDesbloqueadas(nivel);
   const ecra = document.createElement('div');
   ecra.className = 'ecra ecra-centro';
   ecra.innerHTML = `
@@ -250,7 +263,7 @@ export function ecraPerfil(raiz) {
       <div class="cartao-perfil">
         <h3>DUELOS</h3>
         <div class="grande">${d.stats.v}V · ${d.stats.d}D</div>
-        <div class="sub">Academia: ${d.licoes.length}/${LICOES.length} capítulos concluídos</div>
+        <div class="sub">Academia: ${d.licoes.length}/${LICOES.length} capítulos · vitórias purificam a Tinta de Treino 🖋</div>
       </div>
       <div class="cartao-perfil">
         <h3>COMPONENTES DESBLOQUEADOS</h3>
@@ -262,7 +275,36 @@ export function ecraPerfil(raiz) {
         <div class="grande">${d.feiticos.length}</div>
         <div class="sub">feitiços pessoais escritos</div>
       </div>
+    </div>
+
+    <div class="cartao-perfil skins-cartao" style="width:min(1000px,100%); margin-top:16px;">
+      <h3>🎭 A TUA FORMA — escolhe uma skin</h3>
+      <div class="grelha-skins" data-skins></div>
     </div>`;
   raiz.appendChild(ecra);
+
+  const grelha = ecra.querySelector('[data-skins]');
+  function desenharSkins() {
+    grelha.innerHTML = SKINS.map((s) => {
+      const aberta = s.nivel <= nivel;
+      const ativa = perfil.skin === s.id;
+      return `
+        <div class="skin-cartao ${ativa ? 'ativa' : ''} ${aberta ? '' : 'bloqueada'}" data-skin="${s.id}" title="${s.descricao}">
+          <div class="skin-figura" style="--c1:${s.cor1}; --c2:${s.cor2}" data-forma="${s.forma}"><div class="skin-corpo"></div></div>
+          <div class="skin-nome">${s.nome}</div>
+          <div class="skin-sub">${aberta ? (ativa ? '✓ equipada' : 'disponível') : `🔒 nível ${s.nivel}`}</div>
+        </div>`;
+    }).join('');
+    grelha.querySelectorAll('[data-skin]').forEach((el) => {
+      el.onclick = () => {
+        const s = SKINS.find((x) => x.id === el.dataset.skin);
+        if (s.nivel > nivel) { som('erro'); return; }
+        perfil.definirSkin(s.id);
+        som('ui');
+        desenharSkins();
+      };
+    });
+  }
+  desenharSkins();
   return { destruir() {} };
 }

@@ -7,8 +7,18 @@ export const FOTO_TICKS = 3;               // snapshot a cada 3 ticks → 20 Hz 
 
 export const ARENA = { largura: 960, altura: 600 };
 
-// Obstáculos da arena (retângulos). Simétricos para justiça entre os dois lados.
-export const OBSTACULOS = [
+// Teclas dos slots (ordem = slot 1..6) — ergonómicas perto de WASD.
+export const TECLAS_SLOTS = ['Q', 'E', 'R', 'F', 'C', 'V'];
+
+// Tinta de Treino: feitiços aprendidos com ajuda do Tomo causam menos dano
+// até serem "purificados" com vitórias em duelo (ver perfil.js / servidor).
+export const POTENCIA_RUNA = 0.75;
+export const VITORIAS_PARA_PURIFICAR = 2;
+
+// ── Mapas ────────────────────────────────────────────────────────────────────
+// Cada mapa: obstáculos, pontos de nascimento, portais ligados (a↔b) e orbes
+// que nascem em posições fixas de forma determinística (ciclo de segundos).
+const OBSTACULOS_ACADEMIA = [
   { x: 430, y: 250, w: 100, h: 100 },  // bloco central
   { x: 170, y: 100, w: 46, h: 150 },
   { x: 744, y: 100, w: 46, h: 150 },
@@ -18,6 +28,54 @@ export const OBSTACULOS = [
   { x: 390, y: 526, w: 180, h: 34 },
 ];
 
+const OBSTACULOS_SANTUARIO = [
+  { x: 300, y: 140, w: 70, h: 70 },
+  { x: 590, y: 140, w: 70, h: 70 },
+  { x: 300, y: 390, w: 70, h: 70 },
+  { x: 590, y: 390, w: 70, h: 70 },
+  { x: 430, y: 265, w: 100, h: 70 },
+  { x: 50, y: 250, w: 34, h: 100 },
+  { x: 876, y: 250, w: 34, h: 100 },
+];
+
+export const MAPAS = [
+  {
+    id: 'academia',
+    nome: 'Pátio da Academia',
+    obstaculos: OBSTACULOS_ACADEMIA,
+    nascimento: [ { x: 110, y: 300 }, { x: 850, y: 300 } ],
+    portais: [ { a: { x: 480, y: 90 }, b: { x: 480, y: 510 } } ],
+    orbes: [
+      { x: 130, y: 110, tipo: 'mana', ciclo: 24, desvio: 4 },
+      { x: 830, y: 490, tipo: 'vida', ciclo: 24, desvio: 12 },
+      { x: 480, y: 300, tipo: 'mana', ciclo: 32, desvio: 0 },
+    ],
+  },
+  {
+    id: 'santuario',
+    nome: 'Santuário das Runas',
+    obstaculos: OBSTACULOS_SANTUARIO,
+    nascimento: [ { x: 110, y: 300 }, { x: 850, y: 300 } ],
+    portais: [
+      { a: { x: 67, y: 160 }, b: { x: 893, y: 440 } },
+      { a: { x: 480, y: 60 }, b: { x: 480, y: 540 } },
+    ],
+    orbes: [
+      { x: 110, y: 70, tipo: 'vida', ciclo: 26, desvio: 2 },
+      { x: 850, y: 530, tipo: 'vida', ciclo: 26, desvio: 14 },
+      { x: 110, y: 530, tipo: 'mana', ciclo: 20, desvio: 6 },
+      { x: 850, y: 70, tipo: 'mana', ciclo: 20, desvio: 16 },
+      { x: 480, y: 130, tipo: 'mana', ciclo: 34, desvio: 0 },
+    ],
+  },
+];
+
+export function mapaPorId(id) {
+  return MAPAS.find((m) => m.id === id) ?? MAPAS[0];
+}
+
+// Compatibilidade: obstáculos/nascimento do mapa padrão.
+export const OBSTACULOS = OBSTACULOS_ACADEMIA;
 export const PONTOS_NASCIMENTO = [ { x: 110, y: 300 }, { x: 850, y: 300 } ];
 
 export const JOGADOR = {

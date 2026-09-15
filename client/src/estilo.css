@@ -244,6 +244,83 @@ input[type="text"]:focus { outline: none; border-color: var(--violeta); }
 .chip { background: var(--painel-2); border: 1px solid var(--borda); border-radius: 20px; padding: 4px 12px; font-size: 12.5px; }
 .chip.bloqueado { opacity: 0.4; }
 
+/* ── Tinta de Treino ─────────────────────────────────────────────────────── */
+.caixa-tinta {
+  background: linear-gradient(180deg, #101c3a, #0c1428);
+  border: 1px solid #2a4a7a;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-top: 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #cfe4ff;
+  text-align: left;
+}
+.tinta-linha { color: #9cc4ff; }
+.tinta-linha strong { color: #cfe4ff; }
+.badge-tinta {
+  display: inline-block;
+  background: #101c3a;
+  border: 1px solid #2a4a7a;
+  color: #9cc4ff;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  margin: 4px 0 8px;
+}
+.tinta-purificada { color: var(--ouro); font-size: 14px; }
+.tinta-nota { color: #9cc4ff; font-size: 13px; }
+
+/* ── O Tomo ──────────────────────────────────────────────────────────────── */
+.filtros-tier { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.chip-filtro {
+  background: var(--painel); border: 1px solid var(--borda); border-radius: 20px;
+  padding: 6px 16px; font-size: 13px; color: var(--texto-2);
+}
+.chip-filtro.ativo { border-color: var(--cor-tier, var(--violeta)); color: var(--texto); box-shadow: 0 0 10px color-mix(in srgb, var(--cor-tier, var(--violeta)) 35%, transparent); }
+.tier-titulo { margin: 22px 0 4px; font-size: 18px; }
+.tier-desc { font-size: 12.5px; color: var(--texto-2); font-weight: 400; margin-left: 8px; }
+.tomo-cartao .tomo-desc { color: var(--texto-2); font-size: 12.5px; line-height: 1.5; margin: 4px 0 8px; }
+.tomo-codigo {
+  background: #120d26; border: 1px solid var(--borda); border-radius: 9px;
+  padding: 10px 12px; font-family: var(--codigo); font-size: 11px; line-height: 1.5;
+  max-height: 220px; overflow: auto; color: #d9ccff; white-space: pre; margin-bottom: 10px;
+}
+
+/* ── Skins ───────────────────────────────────────────────────────────────── */
+.skins-cartao { text-align: left; }
+.grelha-skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.skin-cartao {
+  background: #120d26; border: 1.5px solid var(--borda); border-radius: 14px;
+  padding: 14px 10px; text-align: center; cursor: pointer; transition: transform 0.1s, border-color 0.15s;
+}
+.skin-cartao:hover:not(.bloqueada) { transform: translateY(-2px); border-color: var(--violeta); }
+.skin-cartao.ativa { border-color: var(--ouro); box-shadow: 0 0 14px rgba(255,209,102,0.3); }
+.skin-cartao.bloqueada { opacity: 0.4; cursor: not-allowed; }
+.skin-nome { font-weight: 700; font-size: 13.5px; margin-top: 8px; }
+.skin-sub { font-size: 11px; color: var(--texto-2); margin-top: 2px; }
+.skin-figura { width: 54px; height: 54px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+.skin-corpo {
+  width: 38px; height: 38px; background: var(--c1);
+  box-shadow: 0 0 14px var(--c1);
+  position: relative;
+}
+.skin-figura[data-forma='orbe'] .skin-corpo { border-radius: 50%; }
+.skin-figura[data-forma='orbe'] .skin-corpo::after { content: ''; position: absolute; inset: 26%; background: var(--c2); border-radius: 50%; }
+.skin-figura[data-forma='cristal'] .skin-corpo { transform: rotate(45deg); border-radius: 4px; }
+.skin-figura[data-forma='cristal'] .skin-corpo::after { content: ''; position: absolute; inset: 28%; background: var(--c2); }
+.skin-figura[data-forma='olho'] .skin-corpo { border-radius: 50%; }
+.skin-figura[data-forma='olho'] .skin-corpo::after { content: ''; position: absolute; inset: 24%; background: var(--c2); border-radius: 50%; }
+.skin-figura[data-forma='cometa'] .skin-corpo { border-radius: 50% 50% 50% 12%; transform: rotate(-45deg); }
+.skin-figura[data-forma='hexa'] .skin-corpo { clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%); }
+.skin-figura[data-forma='estrela'] .skin-corpo {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: var(--c2);
+}
+
+/* slot selecionado no HUD */
+.hud-slot.selecionado { border-color: var(--ouro); box-shadow: 0 0 12px rgba(255,209,102,0.4); }
+
 /* barra de scroll temática */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 5px; }

@@ -18,6 +18,7 @@ export function criarBarraTopo(secaoAtiva) {
     ['#/inicio', 'Início'],
     ['#/academia', 'Academia'],
     ['#/grimorio', 'Grimório'],
+    ['#/tomo', 'Tomo'],
     ['#/poligono', 'Polígono'],
     ['#/duelo', 'Duelo'],
     ['#/perfil', 'Perfil'],

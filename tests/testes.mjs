@@ -78,4 +78,22 @@ const espiao = compilarFeitico('feitico.definir({ nome:"x", aoLancar() { window;
 assert.ok(espiao.ok); // compila (window não existe estaticamente)
 console.log('✓ globals como window/fetch estão sombreados (erro em runtime, nunca crasham o jogo)');
 
+// 9. Biblioteca (Tomo): todos os feitiços compilam e têm complexidade razoável
+import { BIBLIOTECA, TIERS, SKINS, MAPAS } from '../shared/src/index.js';
+for (const f of BIBLIOTECA) {
+  const c = compilarFeitico(f.codigo);
+  assert.ok(c.ok, `feitiço da biblioteca "${f.nome}" deve compilar: ` + JSON.stringify(c.erros));
+  assert.ok(c.feitico.complexidade <= 40, `"${f.nome}" demasiado complexo`);
+}
+const porTier = Object.fromEntries(TIERS.map((t) => [t.id, BIBLIOTECA.filter((f) => f.tier === t.id).length]));
+console.log('✓ Tomo:', BIBLIOTECA.length, 'feitiços compilam — por tier:', JSON.stringify(porTier));
+
+// 10. Mapas: nascimentos livres e sem sobreposição óbvia
+for (const m of MAPAS) {
+  assert.ok(m.nascimento.length === 2 && m.obstaculos.length > 3, `mapa ${m.id} inválido`);
+  for (const n of m.nascimento) assert.ok(!m.obstaculos.some((o) =>
+    n.x > o.x - 20 && n.x < o.x + o.w + 20 && n.y > o.y - 20 && n.y < o.y + o.h + 20), `nascimento dentro de obstáculo em ${m.id}`);
+}
+console.log('✓', MAPAS.length, 'mapas válidos (', MAPAS.map((m) => m.id).join(', '), ')');
+
 console.log('\nTODOS OS TESTES DO NÚCLEO PASSARAM ✔');

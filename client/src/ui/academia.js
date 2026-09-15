@@ -77,7 +77,16 @@ export async function ecraLicao(raiz, idLicao) {
 
   layout.querySelector('[data-dica]').onclick = () => {
     layout.querySelector('[data-dica-txt]').textContent = ' ' + licao.desafio.dica;
+    if (!perfil.dicaUsada(licao.id)) {
+      perfil.marcarDica(licao.id);
+      avisoTinta('🖋 Consultaste o Tomo do Mestre: o teu feitiço desta lição guardará Tinta de Treino (−25% de dano até purificares a tinta com 2 vitórias). Sem pressa — aprender vale isso.');
+    }
   };
+
+  function avisoTinta(texto) {
+    relatorioEl.style.display = 'block';
+    relatorioEl.innerHTML = `<div class="linha tinta-linha"><span>🖋</span><span>${texto}</span></div>` + relatorioEl.innerHTML;
+  }
 
   let editor;
   try {
@@ -130,17 +139,35 @@ export async function ecraLicao(raiz, idLicao) {
       .map((x) => `<div class="linha"><span class="${x.ok ? 'ok' : 'falha'}">${x.ok ? '✔' : '✗'}</span><span>${x.texto}</span></div>`)
       .join('') + (v.ok ? '<div class="linha ok">✦ Desafio concluído!</div>' : '');
     if (v.ok && !perfil.licaoFeita(licao.id)) {
+      const usouDica = perfil.dicaUsada(licao.id);
       perfil.concluirLicao(licao.id);
       const novoNivel = perfil.adicionarXP(RECOMPENSAS_XP.licao);
       som(novoNivel ? 'nivel' : 'vitoria');
       const extra = novoNivel
         ? `<div class="linha ok">NÍVEL ${novoNivel}! Componentes novos: ${componentesDesbloqueados(novoNivel).join(', ')}</div>`
         : '';
+      const mensagemTinta = usouDica
+        ? `<div class="linha tinta-linha"><span>🖋</span><span>Guarda o feitiço e ele chega com <strong>Tinta de Treino</strong>
+           (−25% de dano) — obras escritas com a ajuda do Tomo precisam de 2 vitórias em duelo para a tinta desbotar
+           e revelar o teu verdadeiro poder.</span></div>`
+        : `<div class="linha ok">✒ <strong>Feitiço Purificado</strong> — escrito pela tua própria mão, sem consultar o Tomo. Poder pleno desde já.</div>`;
       relatorioEl.innerHTML += `
         ${extra}
         <div class="linha ok">+${RECOMPENSAS_XP.licao} XP · componente <strong>${licao.desbloqueia}</strong> desbloqueado!</div>
-        <div class="linha"><button class="mini primario" data-continuar>Continuar →</button></div>`;
+        ${mensagemTinta}
+        <div class="linha">
+          <button class="mini primario" data-guardar-feitico>Guardar o meu feitiço no Grimório</button>
+          <button class="mini" data-continuar>Continuar →</button>
+        </div>`;
       relatorioEl.querySelector('[data-continuar]').onclick = () => navegar('#/academia');
+      relatorioEl.querySelector('[data-guardar-feitico]').onclick = (e) => {
+        const g = perfil.guardarFeitico(codigo, { tinta: usouDica });
+        if (g.ok) {
+          som('vitoria');
+          e.target.textContent = '✓ guardado no Grimório';
+          e.target.disabled = true;
+        }
+      };
     } else if (v.ok) {
       som('vitoria');
     } else {

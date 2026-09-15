@@ -3,8 +3,9 @@
 // Ticks fixos a 60 Hz, aleatoriedade semeada, ordem de processamento estável.
 // ─────────────────────────────────────────────────────────────────────────────
 import {
-  ARENA, OBSTACULOS, PONTOS_NASCIMENTO, JOGADOR, RODADA, PASSOS,
+  ARENA, JOGADOR, RODADA, PASSOS,
   LIMITES, ELEMENTOS, SINERGIAS, DISTANCIA_PERTO,
+  MAPAS, mapaPorId, OBSTACULOS, PONTOS_NASCIMENTO,
 } from '../constantes.js';
 import { criarRng } from '../rng.js';
 import { chamarHook } from '../sandbox/maquina.js';
@@ -18,9 +19,9 @@ export function inputVazio() {
   return { cima: false, baixo: false, esq: false, dir: false, miraX: 0, miraY: 0, lancar: 0, dash: false };
 }
 
-export function colideObstaculo(x, y, r) {
+function colideObstaculo(x, y, r, obstaculos) {
   if (x - r < 0 || y - r < 0 || x + r > ARENA.largura || y + r > ARENA.altura) return true;
-  for (const o of OBSTACULOS) {
+  for (const o of obstaculos) {
     const px = Math.max(o.x, Math.min(x, o.x + o.w));
     const py = Math.max(o.y, Math.min(y, o.y + o.h));
     if ((px - x) ** 2 + (py - y) ** 2 < r * r) return true;
@@ -47,13 +48,20 @@ function tColisaoSegmento(x1, y1, x2, y2, o) {
 }
 
 const limitar = (v, a, b) => Math.min(b, Math.max(a, v));
+// Número de opção com predefinição — respeita 0 explícito (ex.: dano: 0 nos desafios).
+const num = (v, def) => {
+  if (v === undefined || v === null || v === '') return def;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+};
 
 export class Partida {
-  constructor({ semente = 1, jogadores }) {
+  constructor({ semente = 1, jogadores, mapaId = 'academia' }) {
+    this.mapa = mapaPorId(mapaId);
     this.rng = criarRng(semente);
     this.jogadores = jogadores.slice(0, 2).map((j, i) => ({
-      id: j.id, nome: j.nome, equipa: i,
-      x: PONTOS_NASCIMENTO[i].x, y: PONTOS_NASCIMENTO[i].y,
+      id: j.id, nome: j.nome, equipa: i, skin: j.skin ?? 'aprendiz',
+      x: this.mapa.nascimento[i].x, y: this.mapa.nascimento[i].y,
       vida: JOGADOR.vidaMax, mana: JOGADOR.manaMax, escudo: 0,
       anguloMira: i === 0 ? 0 : Math.PI,
       loadout: (j.loadout ?? []).slice(0, 6),
@@ -62,6 +70,7 @@ export class Partida {
       dashT: 0, dashCdT: 0, dashDirX: 1, dashDirY: 0,
       input: inputVazio(), pendLancar: 0, pendDash: false,
       hookCd: {}, // cooldowns internos dos hooks reativos
+      portalCd: 0,
       errosRodada: 0,
     }));
     this.entidades = [];
@@ -77,6 +86,19 @@ export class Partida {
     this.sobremorte = false;
     this.vencedorRound = null;
     this.resultadoFinal = null;
+  }
+
+  // Colisão com os obstáculos DESTE mapa (usada também pelo bot).
+  colide(x, y, r) {
+    return colideObstaculo(x, y, r, this.mapa.obstaculos);
+  }
+
+  // Orbes do mapa presentes neste instante (determinístico pelo cronómetro da ronda).
+  orbesAtivos() {
+    const t = RODADA.duracao - this.tRestante;
+    return this.mapa.orbes
+      .filter((o) => ((t + o.desvio) % o.ciclo) < o.ciclo - 7)
+      .map((o) => ({ x: o.x, y: o.y, tipo: o.tipo }));
   }
 
   // ── Consultas para bot / HUD ───────────────────────────────────────────────
@@ -99,6 +121,7 @@ export class Partida {
       projeteis: this.entidades
         .filter((en) => en.tipo === 'projetil' && en.dono !== id)
         .map((en) => ({ x: en.x, y: en.y, vx: en.vx, vy: en.vy })),
+      orbes: this.orbesAtivos(),
       tRestante: this.tRestante, fase: this.fase,
     };
   }
@@ -182,8 +205,38 @@ export class Partida {
     }
 
     const nx = j.x + vx * dt, ny = j.y + vy * dt;
-    if (!colideObstaculo(nx, j.y, JOGADOR.raio)) j.x = nx;
-    if (!colideObstaculo(j.x, ny, JOGADOR.raio)) j.y = ny;
+    if (!this.colide(nx, j.y, JOGADOR.raio)) j.x = nx;
+    if (!this.colide(j.x, ny, JOGADOR.raio)) j.y = ny;
+    j.x = limitar(j.x, JOGADOR.raio, ARENA.largura - JOGADOR.raio);
+    j.y = limitar(j.y, JOGADOR.raio, ARENA.altura - JOGADOR.raio);
+
+    // portais: entra num lado, sai no outro (cooldown por jogador)
+    j.portalCd -= dt;
+    if (j.portalCd <= 0) {
+      for (const par of this.mapa.portais) {
+        let saiu = false;
+        for (const [de, para] of [[par.a, par.b], [par.b, par.a]]) {
+          if (Math.hypot(j.x - de.x, j.y - de.y) < 26 && !this.colide(para.x, para.y, JOGADOR.raio)) {
+            this.eventos.push({ tipo: 'portal', x: j.x, y: j.y, cor: '#7cc4ff' });
+            j.x = para.x; j.y = para.y;
+            this.eventos.push({ tipo: 'portal', x: j.x, y: j.y, cor: '#7cc4ff' });
+            j.portalCd = 2.5;
+            saiu = true;
+            break;
+          }
+        }
+        if (saiu) break;
+      }
+    }
+
+    // orbes de mana/vida do mapa
+    for (const o of this.orbesAtivos()) {
+      if (Math.hypot(j.x - o.x, j.y - o.y) < 22) {
+        if (o.tipo === 'mana') j.mana = Math.min(JOGADOR.manaMax, j.mana + 45);
+        else j.vida = Math.min(JOGADOR.vidaMax, j.vida + 12);
+        this.eventos.push({ tipo: 'orbe', x: o.x, y: o.y, cor: o.tipo === 'mana' ? '#4ea8ff' : '#7bffb2', texto: o.tipo === 'mana' ? '+mana' : '+vida' });
+      }
+    }
     j.vx = vx; j.vy = vy; // velocidade real (útil para mira preditiva)
     j.x = limitar(j.x, JOGADOR.raio, ARENA.largura - JOGADOR.raio);
     j.y = limitar(j.y, JOGADOR.raio, ARENA.altura - JOGADOR.raio);
@@ -311,31 +364,34 @@ export class Partida {
   }
 
   invocarProjetil(dono, feitico, op, cor) {
+    const pot = feitico.potencia ?? 1; // Tinta de Treino: feitiços aprendidos com ajuda ferem menos
     let dir = Number(op.direcao ?? op.angulo ?? dono.anguloMira);
     if (!Number.isFinite(dir)) dir = dono.anguloMira;
     if (dono.estados.some((e) => e.estado === 'cego')) dir += (this.rng() - 0.5) * 0.55;
-    const vel = limitar(Number(op.velocidade) || 320, 60, 900);
+    const vel = limitar(num(op.velocidade, 320), 60, 900);
     this.entidades.push({
       id: this.proximoId++, tipo: 'projetil', dono: dono.id, elemento: feitico.elemento,
       x: dono.x + Math.cos(dir) * (JOGADOR.raio + 6), y: dono.y + Math.sin(dir) * (JOGADOR.raio + 6),
       vx: Math.cos(dir) * vel, vy: Math.sin(dir) * vel,
-      dano: limitar(Number(op.dano) || 6, 0, 40), raio: limitar(Number(op.raio) || 6, 3, 18),
-      ttl: limitar(Number(op.vida) || 2.5, 0.2, 6), efeitos: this.normalizarEfeitos(op),
+      dano: limitar(num(op.dano, 6), 0, 40) * pot, raio: limitar(num(op.raio, 6), 3, 18),
+      ttl: limitar(num(op.vida, 2.5), 0.2, 6), efeitos: this.normalizarEfeitos(op),
       aoAcertar: typeof op.aoAcertar === 'function' ? op.aoAcertar : null, feitico, cor,
+      runa: pot < 1,
     });
   }
 
   invocarFeixe(dono, feitico, op, cor) {
+    const pot = feitico.potencia ?? 1;
     let dir = Number(op.direcao ?? dono.anguloMira);
     if (!Number.isFinite(dir)) dir = dono.anguloMira;
     if (dono.estados.some((e) => e.estado === 'cego')) dir += (this.rng() - 0.5) * 0.55;
-    const alcance = limitar(Number(op.alcance) || 380, 60, 700);
-    const dano = limitar(Number(op.dano) || 14, 0, 40);
-    const largura = limitar(Number(op.largura) || 8, 3, 24);
+    const alcance = limitar(num(op.alcance, 380), 60, 700);
+    const dano = limitar(num(op.dano, 14), 0, 40) * pot;
+    const largura = limitar(num(op.largura, 8), 3, 24);
     let t = alcance;
     const x1 = dono.x, y1 = dono.y;
     const x2 = x1 + Math.cos(dir) * alcance, y2 = y1 + Math.sin(dir) * alcance;
-    for (const o of OBSTACULOS) {
+    for (const o of this.mapa.obstaculos) {
       const frac = tColisaoSegmento(x1, y1, x2, y2, o); // fração 0..1 ao longo do segmento
       if (frac * alcance < t) t = frac * alcance;        // converte para unidades
     }
@@ -361,8 +417,8 @@ export class Partida {
     const emMira = op.centro === 'mira' || op.em === 'mira';
     const cx = emMira ? limitar(dono.x + Math.cos(dono.anguloMira) * 220, 0, ARENA.largura) : dono.x;
     const cy = emMira ? limitar(dono.y + Math.sin(dono.anguloMira) * 220, 0, ARENA.altura) : dono.y;
-    const raio = limitar(Number(op.raio) || 70, 20, 160);
-    const dano = limitar(Number(op.dano) || 14, 0, 45);
+    const raio = limitar(num(op.raio, 70), 20, 160);
+    const dano = limitar(num(op.dano, 14), 0, 45) * (feitico.potencia ?? 1);
     const efeitos = this.normalizarEfeitos(op);
     for (const j of this.jogadores) {
       if (j.id === dono.id || j.vida <= 0) continue;
@@ -376,19 +432,19 @@ export class Partida {
 
   invocarArmadilha(dono, feitico, op, cor) {
     let dir = Number(op.direcao ?? dono.anguloMira);
-    const dist = limitar(Number(op.distancia) || 80, 20, 260);
+    const dist = limitar(num(op.distancia, 80), 20, 260);
     const x = limitar(dono.x + Math.cos(dir) * dist, 20, ARENA.largura - 20);
     const y = limitar(dono.y + Math.sin(dir) * dist, 20, ARENA.altura - 20);
     this.entidades.push({
       id: this.proximoId++, tipo: 'armadilha', dono: dono.id, elemento: feitico.elemento,
-      x, y, raio: limitar(Number(op.raio) || 34, 20, 70),
-      dano: limitar(Number(op.dano) || 15, 0, 40), efeitos: this.normalizarEfeitos(op),
-      t: limitar(Number(op.duracao) || 8, 1, 20), armamento: 0.6, cor,
+      x, y, raio: limitar(num(op.raio, 34), 20, 70),
+      dano: limitar(num(op.dano, 15), 0, 40) * (feitico.potencia ?? 1), efeitos: this.normalizarEfeitos(op),
+      t: limitar(num(op.duracao, 8), 1, 20), armamento: 0.6, cor,
     });
   }
 
   criarEscudo(dono, op = {}) {
-    const vida = limitar(Number(op.vida) || 40, 5, JOGADOR.escudoMax);
+    const vida = limitar(num(op.vida, 40), 5, JOGADOR.escudoMax);
     dono.escudo = Math.min(JOGADOR.escudoMax, dono.escudo + vida);
     this.eventos.push({ tipo: 'escudo', x: dono.x, y: dono.y });
   }
@@ -396,9 +452,9 @@ export class Partida {
   criarAura(dono, op = {}) {
     this.entidades.push({
       id: this.proximoId++, tipo: 'aura', dono: dono.id, elemento: op.elemento && ELEMENTOS[op.elemento] ? op.elemento : 'arcano',
-      raio: limitar(Number(op.raio) || 90, 40, 160),
-      dps: limitar(Number(op.dps) || 4, 0, 12),
-      t: limitar(Number(op.duracao) || 4, 1, 10),
+      raio: limitar(num(op.raio, 90), 40, 160),
+      dps: limitar(num(op.dps, 4), 0, 12),
+      t: limitar(num(op.duracao, 4), 1, 10),
       cor: ELEMENTOS[op.elemento && ELEMENTOS[op.elemento] ? op.elemento : 'arcano'].cor,
     });
   }
@@ -407,32 +463,32 @@ export class Partida {
     const passos = Math.ceil(Math.hypot(dx, dy) / 6) || 1;
     const px = dx / passos, py = dy / passos;
     for (let i = 0; i < passos; i++) {
-      if (!colideObstaculo(j.x + px, j.y, JOGADOR.raio)) j.x += px;
-      if (!colideObstaculo(j.x, j.y + py, JOGADOR.raio)) j.y += py;
+      if (!this.colide(j.x + px, j.y, JOGADOR.raio)) j.x += px;
+      if (!this.colide(j.x, j.y + py, JOGADOR.raio)) j.y += py;
     }
     j.x = limitar(j.x, JOGADOR.raio, ARENA.largura - JOGADOR.raio);
     j.y = limitar(j.y, JOGADOR.raio, ARENA.altura - JOGADOR.raio);
   }
 
   dashMagico(dono, op = {}) {
-    const dist = limitar(Number(op.distancia) || 130, 40, 220);
+    const dist = limitar(num(op.distancia, 130), 40, 220);
     const dir = Number.isFinite(Number(op.direcao)) ? Number(op.direcao) : dono.anguloMira;
     this.moverPasso(dono, Math.cos(dir) * dist, Math.sin(dir) * dist);
     this.eventos.push({ tipo: 'dash', x: dono.x, y: dono.y });
   }
 
   teleporteMagico(dono, op = {}) {
-    const dist = limitar(Number(op.distancia) || 200, 60, 260);
+    const dist = limitar(num(op.distancia, 200), 60, 260);
     const dir = Number.isFinite(Number(op.direcao)) ? Number(op.direcao) : dono.anguloMira;
     const alvoX = dono.x + Math.cos(dir) * dist, alvoY = dono.y + Math.sin(dir) * dist;
-    if (!colideObstaculo(alvoX, alvoY, JOGADOR.raio)) {
+    if (!this.colide(alvoX, alvoY, JOGADOR.raio)) {
       dono.x = limitar(alvoX, JOGADOR.raio, ARENA.largura - JOGADOR.raio);
       dono.y = limitar(alvoY, JOGADOR.raio, ARENA.altura - JOGADOR.raio);
     } else {
       // recua gradual até encontrar espaço livre
       for (let d = dist; d > 20; d -= 12) {
         const x = dono.x + Math.cos(dir) * d, y = dono.y + Math.sin(dir) * d;
-        if (!colideObstaculo(x, y, JOGADOR.raio)) { dono.x = x; dono.y = y; break; }
+        if (!this.colide(x, y, JOGADOR.raio)) { dono.x = x; dono.y = y; break; }
       }
     }
     this.eventos.push({ tipo: 'teleporte', x: dono.x, y: dono.y, cor: '#c77dff' });
@@ -539,7 +595,7 @@ export class Partida {
 
   passoProjetil(e, dt) {
     e.x += e.vx * dt; e.y += e.vy * dt; e.ttl -= dt;
-    if (e.ttl <= 0 || colideObstaculo(e.x, e.y, e.raio)) {
+    if (e.ttl <= 0 || this.colide(e.x, e.y, e.raio)) {
       this.eventos.push({ tipo: 'spark', x: e.x, y: e.y, cor: e.cor });
       return false;
     }
@@ -628,7 +684,7 @@ export class Partida {
     this.vencedorRound = null;
     this.fase = 'luta';
     this.jogadores.forEach((j, i) => {
-      j.x = PONTOS_NASCIMENTO[i].x; j.y = PONTOS_NASCIMENTO[i].y;
+      j.x = this.mapa.nascimento[i].x; j.y = this.mapa.nascimento[i].y;
       j.vida = JOGADOR.vidaMax; j.mana = JOGADOR.manaMax; j.escudo = 0;
       j.estados = []; j.ativos = []; j.recargas = new Array(6).fill(0);
       j.dashT = 0; j.dashCdT = 0; j.errosRodada = 0; j.hookCd = {};
@@ -640,6 +696,7 @@ export class Partida {
   snapshot() {
     const s = {
       t: this.tick,
+      mapaId: this.mapa.id,
       round: this.round,
       placar: this.placar.slice(),
       tRestante: Math.max(0, this.tRestante),
@@ -647,8 +704,9 @@ export class Partida {
       sobremorte: this.sobremorte,
       vencedorRound: this.vencedorRound,
       resultadoFinal: this.resultadoFinal,
+      orbes: this.fase === 'luta' ? this.orbesAtivos() : [],
       jogadores: this.jogadores.map((j) => ({
-        id: j.id, nome: j.nome, equipa: j.equipa,
+        id: j.id, nome: j.nome, equipa: j.equipa, skin: j.skin,
         x: +j.x.toFixed(1), y: +j.y.toFixed(1), angulo: +j.anguloMira.toFixed(3),
         vida: Math.max(0, Math.round(j.vida)), mana: Math.round(j.mana), escudo: Math.round(j.escudo),
         estados: j.estados.map((e) => e.estado),
@@ -667,6 +725,7 @@ export class Partida {
         raio: e.raio ?? undefined, largura: e.largura ?? undefined, cor: e.cor,
         t: e.t != null ? +e.t.toFixed(2) : undefined,
         armamento: e.armamento != null ? +e.armamento.toFixed(2) : undefined,
+        runa: e.runa === true || undefined,
       })),
       eventos: this.eventos,
     };

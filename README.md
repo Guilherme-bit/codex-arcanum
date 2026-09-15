@@ -31,12 +31,15 @@ feitico.definir({
 ## ✨ O que está implementado
 
 - **Sandbox de feitiços** — interpretador instrumentado com limite de passos por lançamento (ciclos infinitos não crasham o jogo), sem acesso a DOM/rede/ficheiros, com erros temáticos: *«O teu grimório estalou: falta fechar uma chaveta `}` na linha 4»*.
-- **Arena 2D top-down** — WASD + rato + teclas 1–6, dash com cooldown, escudos que quebram, **projéteis que colidem entre si (parry mágico)**.
+- **Academia redesenhada para aprender de verdade** — 8 capítulos escritos para quem nunca programou: analogias (potes=com variáveis, encruzilhadas=if), glossários, e desafios **"completa-uma-linha"** (o código está quase todo feito; mudas uma coisa pequena de cada vez).
+- **O Tomo** — biblioteca com 24+ feitiços de exemplo ordenados pela **dificuldade do código** (Iniciado → Aventureiro → Mestre → Arcano), cada um ensinando um conceito. Estrutura pronta para crescer a centenas.
+- **🖋 Tinta de Treino** — feitiços copiados do Tomo ou aprendidos com a dica do Mestre chegam com tinta (−25% de dano, runas douradas a orbitar). **2 vitórias em duelo** desbotam a tinta e "purificam" o feitiço. Feitiços escritos sem dica nascem puros.
+- **Skins** — 8 formas de mago (orbe, cristal, olho, cometa, hexagrama, estrela…) desbloqueadas por nível, visíveis online para ambos os jogadores.
+- **Arena 2D top-down interativa** — 2 mapas (Pátio da Academia e Santuário das Runas) com **orbes de mana e vida**, **portais de teletransporte**, obstáculos variados, dash, escudos que quebram e **parry mágico** (projéteis colidem entre si).
+- **Comandos ergonómicos** — feitiços em **Q E R F C V** (1–6 continuam a funcionar), **roda do rato** escolhe o slot, **clique** lança o slot escolhido.
 - **Elementos e sinergias** — fogo, água, terra, ar, arcano (fogo + molhado = vapor que cega; fogo + vento = explosão ampliada).
-- **Academia (PvE)** — 8 capítulos: funções → variáveis → condicionais → ciclos → funções próprias → vetores/trigonometria (mira preditiva) → eventos → otimização. Cada lição tem **verificação automática** (análise AST + simulação real) e desbloqueia componentes novos.
-- **Polígono de Treino** — bot com IA (aproxima-se, dispara, esquiva, desvia de obstáculos) para testares feitiços sem sair do jogo (escrever → testar → ajustar).
 - **Duelo online 1v1** — servidor **autoritativo** (Node.js + Socket.IO): o código dos feitiços é validado e executado **só no servidor**; clientes enviam intenções de input e recebem snapshots a 20 Hz com interpolação.
-- **Progressão** — XP/níveis, desbloqueio de componentes (`projetil`, `feixe`, `area`, `escudo`, `dash`, `teleporte`, `armadilha`, `aura`), rating **Elo** com ligas (Aprendiz → Mago → Arquimago → Lenda Arcana).
+- **Progressão** — XP/níveis, desbloqueio de componentes (`projetil`, `feixe`, `area`, `escudo`, `dash`, `teleporte`, `armadilha`, `aura`) e de skins, rating **Elo** com ligas (Aprendiz → Mago → Arquimago → Lenda Arcana).
 - **Grimório** — cria, equipa (6 slots + orçamento de *energia arcana*), exporta e importa feitiços em JSON.
 - **Juice** — partículas, screen shake, números de dano, áudio sintetizado (WebAudio, zero assets) e ícone próprio.
 
@@ -99,7 +102,9 @@ Comentários de código em português. Tudo open-source (MIT), sem dependências
 |---|---|
 | `WASD` | mover |
 | Rato | mirar |
-| `1`–`6` | lançar feitiço do slot (clique esquerdo = slot 1) |
+| `Q` `E` `R` `F` `C` `V` | lançar o feitiço do slot (1–6 também funciona) |
+| Roda do rato | escolher o slot ativo |
+| Clique esquerdo | lançar o slot escolhido |
 | `Espaço` | dash |
 | `ESC` | sair da arena |
 

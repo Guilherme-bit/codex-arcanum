@@ -1,7 +1,8 @@
-// Renderizador Canvas 2D da arena: fundo arcano, entidades, partículas e juice.
-import { ARENA, OBSTACULOS, ELEMENTOS } from '@codex/shared';
+// Renderizador Canvas 2D da arena: fundos por mapa, obstáculos, portais, orbes,
+// skins (formas de personagem), partículas e juice.
+import { ARENA, ELEMENTOS, mapaPorId, skinPorId } from '@codex/shared';
 
-const COR_EQUIPA = ['#ffd166', '#ff5c7a']; // eu / adversário
+const COR_EQUIPA = ['#ffd166', '#ff5c7a']; // contorno: eu / adversário
 
 export class Renderizador {
   constructor(canvas) {
@@ -61,6 +62,11 @@ export class Renderizador {
         case 'round': this.textos.push({ x: ARENA.largura / 2, y: 150, texto: `RONDA ${ev.numero}`, cor: '#ffd166', t: 1.8, vy: -12 }); break;
         case 'rastro': this.particulas.push({ x: ev.x, y: ev.y, vx: 0, vy: 0, t: 0.3, vida: 0.3, cor: ev.cor, tam: 4 }); break;
         case 'semMana': this.textos.push({ x: ev.x, y: ev.y, texto: 'sem mana…', cor: '#7cc4ff', t: 0.7, vy: -35 }); break;
+        case 'portal': this.jato(ev.x, ev.y, ev.cor ?? '#7cc4ff', 10, 150); break;
+        case 'orbe':
+          this.jato(ev.x, ev.y, ev.cor, 14, 200);
+          if (ev.texto) this.textos.push({ x: ev.x, y: ev.y - 14, texto: ev.texto, cor: ev.cor, t: 0.9, vy: -40 });
+          break;
         default: break;
       }
     }
@@ -105,10 +111,17 @@ export class Renderizador {
     const sy = sh ? (Math.random() - 0.5) * sh : 0;
     c.setTransform(dpr * this.escala, 0, 0, dpr * this.escala, dpr * (this.offX + sx), dpr * (this.offY + sy));
 
-    // fundo da arena
+    const mapa = mapaPorId(snap.mapaId ?? 'academia');
+
+    // fundo da arena (tinta por mapa)
+    const tintes = {
+      academia: ['#1d1440', '#0b0718'],
+      santuario: ['#0f2438', '#060e1a'],
+    };
+    const [tinte1, tinte2] = tintes[mapa.id] ?? tintes.academia;
     const g = c.createRadialGradient(ARENA.largura / 2, ARENA.altura / 2, 60, ARENA.largura / 2, ARENA.altura / 2, 620);
-    g.addColorStop(0, '#1d1440');
-    g.addColorStop(1, '#0b0718');
+    g.addColorStop(0, tinte1);
+    g.addColorStop(1, tinte2);
     c.fillStyle = g;
     c.fillRect(0, 0, ARENA.largura, ARENA.altura);
 
@@ -127,14 +140,50 @@ export class Renderizador {
     c.arc(ARENA.largura / 2, ARENA.altura / 2, 80 + Math.sin(this.tempo * 0.8) * 4, 0, Math.PI * 2);
     c.stroke();
 
+    // portais (pares ligados)
+    for (const par of mapa.portais ?? []) {
+      for (const p of [par.a, par.b]) {
+        c.save();
+        c.translate(p.x, p.y);
+        c.rotate(this.tempo * 1.4);
+        c.strokeStyle = '#7cc4ff';
+        c.shadowColor = '#7cc4ff';
+        c.shadowBlur = 12;
+        c.lineWidth = 2.5;
+        c.setLineDash([9, 7]);
+        c.beginPath(); c.arc(0, 0, 22, 0, Math.PI * 2); c.stroke();
+        c.setLineDash([]);
+        c.beginPath(); c.arc(0, 0, 12, 0, Math.PI * 2); c.stroke();
+        c.restore();
+        c.shadowBlur = 0;
+      }
+    }
+
     // obstáculos
-    for (const o of OBSTACULOS) {
-      c.fillStyle = '#241a3f';
-      c.strokeStyle = '#4d3a8a';
+    for (const o of mapa.obstaculos) {
+      c.fillStyle = mapa.id === 'santuario' ? '#13293d' : '#241a3f';
+      c.strokeStyle = mapa.id === 'santuario' ? '#3a6a8a' : '#4d3a8a';
       c.lineWidth = 2;
       c.beginPath();
       c.roundRect(o.x, o.y, o.w, o.h, 8);
       c.fill(); c.stroke();
+    }
+
+    // orbes de mana/vida
+    for (const o of snap.orbes ?? []) {
+      const cor = o.tipo === 'mana' ? '#4ea8ff' : '#7bffb2';
+      const bob = Math.sin(this.tempo * 3 + o.x) * 3;
+      c.shadowColor = cor; c.shadowBlur = 16;
+      c.fillStyle = cor;
+      c.beginPath();
+      c.moveTo(o.x, o.y - 9 + bob);
+      c.lineTo(o.x + 7, o.y + bob);
+      c.lineTo(o.x, o.y + 9 + bob);
+      c.lineTo(o.x - 7, o.y + bob);
+      c.closePath(); c.fill();
+      c.shadowBlur = 0;
+      c.fillStyle = 'rgba(255,255,255,0.85)';
+      c.beginPath(); c.arc(o.x - 2, o.y - 3 + bob, 2, 0, Math.PI * 2); c.fill();
     }
 
     // borda da arena
@@ -188,6 +237,20 @@ export class Renderizador {
       c.lineTo(e.x - Math.cos(vang) * e.raio * 3.2, e.y - Math.sin(vang) * e.raio * 3.2);
       c.stroke();
       c.globalAlpha = 1;
+      // Tinta de Treino: runa dourada a orbitar (feitiço aprendido com ajuda)
+      if (e.runa) {
+        c.save();
+        c.translate(e.x, e.y);
+        c.rotate(this.tempo * 5);
+        c.strokeStyle = '#ffd166';
+        c.globalAlpha = 0.9;
+        c.lineWidth = 1.4;
+        c.setLineDash([3, 4]);
+        c.beginPath(); c.arc(0, 0, e.raio + 5, 0, Math.PI * 2); c.stroke();
+        c.setLineDash([]);
+        c.restore();
+        c.globalAlpha = 1;
+      }
     } else if (e.tipo === 'feixe') {
       c.shadowColor = cor; c.shadowBlur = 16;
       c.strokeStyle = cor;
@@ -233,6 +296,7 @@ export class Renderizador {
   desenharJogador(j, eu) {
     const c = this.ctx;
     const cor = COR_EQUIPA[j.equipa] ?? '#fff';
+    const skin = skinPorId(j.skin);
     // anel de estados
     if (j.estados?.length) {
       const cores = { queimadura: '#ff7a3c', molhado: '#3cc8ff', cego: '#dddddd', lento: '#d29a55', vento: '#a9f5c8' };
@@ -253,20 +317,84 @@ export class Renderizador {
       c.fillStyle = 'rgba(160,220,255,0.85)';
       c.fillRect(j.x - larg / 2, j.y - 30, larg * Math.min(1, j.escudo / 80), 6);
     }
-    // corpo
-    c.shadowColor = cor; c.shadowBlur = eu ? 16 : 10;
-    c.fillStyle = cor;
-    c.beginPath(); c.arc(j.x, j.y, 16, 0, Math.PI * 2); c.fill();
+    const ang = j.angulo ?? 0;
+    c.shadowColor = skin.cor1;
+    c.shadowBlur = eu ? 18 : 12;
+
+    // corpo por forma de skin
+    if (skin.forma === 'cristal') {
+      c.fillStyle = skin.cor1;
+      c.save(); c.translate(j.x, j.y); c.rotate(Math.PI / 4);
+      c.beginPath(); c.rect(-12, -12, 24, 24); c.fill();
+      c.restore();
+      c.fillStyle = skin.cor2;
+      c.save(); c.translate(j.x, j.y); c.rotate(Math.PI / 4);
+      c.beginPath(); c.rect(-6, -6, 12, 12); c.fill();
+      c.restore();
+    } else if (skin.forma === 'olho') {
+      c.fillStyle = skin.cor1;
+      c.beginPath(); c.arc(j.x, j.y, 16, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#0d0a1a';
+      c.beginPath(); c.arc(j.x + Math.cos(ang) * 5, j.y + Math.sin(ang) * 5, 8, 0, Math.PI * 2); c.fill();
+      c.fillStyle = skin.cor2;
+      c.beginPath(); c.arc(j.x + Math.cos(ang) * 7, j.y + Math.sin(ang) * 7, 3.4, 0, Math.PI * 2); c.fill();
+    } else if (skin.forma === 'cometa') {
+      // rastro em gradiente oposto à mira
+      const rg = c.createLinearGradient(j.x, j.y, j.x - Math.cos(ang) * 40, j.y - Math.sin(ang) * 40);
+      rg.addColorStop(0, skin.cor2);
+      rg.addColorStop(1, 'rgba(124,196,255,0)');
+      c.fillStyle = rg;
+      c.beginPath(); c.arc(j.x - Math.cos(ang) * 18, j.y - Math.sin(ang) * 18, 12, 0, Math.PI * 2); c.fill();
+      c.fillStyle = skin.cor1;
+      c.beginPath(); c.arc(j.x, j.y, 13, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#0d0a1a';
+      c.beginPath(); c.arc(j.x, j.y, 6, 0, Math.PI * 2); c.fill();
+    } else if (skin.forma === 'hexa') {
+      c.fillStyle = skin.cor1;
+      c.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = ang + (i / 6) * Math.PI * 2;
+        const px = j.x + Math.cos(a) * 16, py = j.y + Math.sin(a) * 16;
+        i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
+      }
+      c.closePath(); c.fill();
+      c.fillStyle = skin.cor2;
+      c.beginPath(); c.arc(j.x, j.y, 7, 0, Math.PI * 2); c.fill();
+    } else if (skin.forma === 'estrela') {
+      c.fillStyle = skin.cor1;
+      c.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 18 : 8;
+        const a = -Math.PI / 2 + ang * 0 + (i / 10) * Math.PI * 2 + this.tempo * 0.6;
+        const px = j.x + Math.cos(a) * r, py = j.y + Math.sin(a) * r;
+        i === 0 ? c.moveTo(px, py) : c.lineTo(px, py);
+      }
+      c.closePath(); c.fill();
+      c.fillStyle = '#0d0a1a';
+      c.beginPath(); c.arc(j.x, j.y, 5.5, 0, Math.PI * 2); c.fill();
+    } else {
+      // 'orbe' (predefinido): anel com núcleo
+      c.fillStyle = skin.cor1;
+      c.beginPath(); c.arc(j.x, j.y, 16, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#0d0a1a';
+      c.beginPath(); c.arc(j.x, j.y, 9, 0, Math.PI * 2); c.fill();
+      c.fillStyle = skin.cor2;
+      c.beginPath(); c.arc(j.x, j.y, 4.5, 0, Math.PI * 2); c.fill();
+    }
     c.shadowBlur = 0;
-    c.fillStyle = '#0d0a1a';
-    c.beginPath(); c.arc(j.x, j.y, 9, 0, Math.PI * 2); c.fill();
+
+    // contorno da equipa (identifica tu vs adversário)
+    c.strokeStyle = cor;
+    c.lineWidth = 2;
+    c.beginPath(); c.arc(j.x, j.y, 19, 0, Math.PI * 2); c.stroke();
+
     // cunha de direção
     c.fillStyle = cor;
     c.save();
     c.translate(j.x, j.y);
-    c.rotate(j.angulo ?? 0);
+    c.rotate(ang);
     c.beginPath();
-    c.moveTo(24, 0); c.lineTo(12, -6); c.lineTo(12, 6);
+    c.moveTo(26, 0); c.lineTo(14, -6); c.lineTo(14, 6);
     c.closePath(); c.fill();
     c.restore();
     // linha de mira (só do jogador humano)
@@ -275,8 +403,8 @@ export class Renderizador {
       c.lineWidth = 1.5;
       c.setLineDash([5, 7]);
       c.beginPath();
-      c.moveTo(j.x + Math.cos(j.angulo ?? 0) * 22, j.y + Math.sin(j.angulo ?? 0) * 22);
-      c.lineTo(j.x + Math.cos(j.angulo ?? 0) * 380, j.y + Math.sin(j.angulo ?? 0) * 380);
+      c.moveTo(j.x + Math.cos(ang) * 22, j.y + Math.sin(ang) * 22);
+      c.lineTo(j.x + Math.cos(ang) * 380, j.y + Math.sin(ang) * 380);
       c.stroke();
       c.setLineDash([]);
     }
