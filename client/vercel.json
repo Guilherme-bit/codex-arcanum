@@ -1,0 +1,10 @@
+# Configuração para deploy do CLIENTE na Vercel (root directory = client).
+# O servidor multiplayer (Socket.IO) vive no Render — ver render.yaml.
+# Definir a env var VITE_SERVIDOR_URL no projeto da Vercel com o URL do Render.
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

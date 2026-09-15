@@ -1,0 +1,13 @@
+{
+  "nome": "Codex Arcanum",
+  "nome_curto": "Codex Arcanum",
+  "descricao": "Duelos mágicos onde os feitiços são programas escritos por ti.",
+  "inicio": "/",
+  "cor_tema": "#0d0a1a",
+  "cor_fundo": "#0d0a1a",
+  "exibicao": "standalone",
+  "icones": [
+    { "src": "/icon-192.png", "tamanhos": "192x192", "tipo": "image/png" },
+    { "src": "/icon-512.png", "tamanhos": "512x512", "tipo": "image/png" }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@codex/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente do Codex Arcanum: arena, editor de feitiços (Monaco) e academia.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.2",
+    "socket.io-client": "^4.8.1",
+    "@codex/shared": "*"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}

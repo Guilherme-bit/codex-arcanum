@@ -1,0 +1,17 @@
+{
+  "name": "@codex/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "Servidor autoritativo do Codex Arcanum: validação de feitiços, partidas 1v1 e Elo.",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "@codex/shared": "*"
+  }
+}

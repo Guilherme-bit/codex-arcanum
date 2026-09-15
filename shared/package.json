@@ -1,0 +1,11 @@
+{
+  "name": "@codex/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "description": "Núcleo partilhado: sandbox de feitiços, API de magia, simulação determinística e academia.",
+  "dependencies": {
+    "acorn": "^8.14.0"
+  }
+}

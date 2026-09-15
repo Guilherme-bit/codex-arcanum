@@ -1,0 +1,12 @@
+# Deployment no Render — serviço único: cliente estático + Socket.IO
+# Cria automaticamente: https://codex-arcanum.onrender.com (ou o nome que escolheres)
+services:
+  - type: web
+    name: codex-arcanum
+    runtime: node
+    plan: free
+    region: frankfurt        # mais próximo de Portugal
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/saude
+    autoDeploy: true         # deploy a cada push para main
